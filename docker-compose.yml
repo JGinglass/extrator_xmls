@@ -1,0 +1,14 @@
+services:
+  vgr-medical:
+    build: .
+    container_name: vgr-medical-app
+    ports:
+      - "8501:8501"
+    volumes:
+      # config.yaml fica no host — credenciais não ficam dentro da imagem
+      - ./config.yaml:/app/config.yaml
+    restart: unless-stopped
+    env_file:
+      - .env   # coloque OPENAI_API_KEY=sk-... aqui (não versionar)
+    environment:
+      - PYTHONUNBUFFERED=1

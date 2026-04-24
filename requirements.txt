@@ -1,0 +1,10 @@
+streamlit
+openai
+plotly
+pandas
+lxml
+openpyxl
+streamlit-authenticator
+pyyaml
+bcrypt
+python-dotenv
