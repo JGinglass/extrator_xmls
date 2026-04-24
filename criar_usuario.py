@@ -20,10 +20,7 @@ def hash_password(password: str) -> str:
 
 
 def load_config() -> dict:
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    return {
+    default = {
         "credentials": {"usernames": {}},
         "cookie": {
             "name": "vgr_auth",
@@ -31,6 +28,12 @@ def load_config() -> dict:
             "expiry_days": 30,
         },
     }
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        if data and "credentials" in data:
+            return data
+    return default
 
 
 def save_config(config: dict) -> None:
