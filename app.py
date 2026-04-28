@@ -463,7 +463,7 @@ def parse_uploaded_files(uploaded_files):
 
     df = pd.DataFrame(all_rows)
     df = to_numeric_cols(
-        df, MONEY_COLS_FLAT + QTY_COLS_FLAT + ["nItem", "seqRastro"] + PCT_COLS_FLAT
+        df, MONEY_COLS_FLAT + QTY_COLS_FLAT + ["nItem", "seqRastro", "vUnReal_item"] + PCT_COLS_FLAT
     )
     df = to_date_cols(df, DATE_COLS_FLAT)
     return df, errors
@@ -585,10 +585,12 @@ def export_excel(df: pd.DataFrame) -> bytes:
         df.to_excel(writer, sheet_name="tabela", index=False)
         ws = writer.book["tabela"]
         format_columns_as_currency(ws, df, [c for c in MONEY_COLS_FLAT if c in df.columns])
-        format_columns(ws, df, [c for c in QTY_COLS_FLAT if c in df.columns], "#,##0.000")
+        if "vUnReal_item" in df.columns:
+            format_columns(ws, df, ["vUnReal_item"], '[$-416]"R$" #,##0.0000')
+        format_columns(ws, df, [c for c in QTY_COLS_FLAT if c in df.columns], "[$-416]#,##0.000")
         format_columns(ws, df, ["nItem", "seqRastro"], "0")
         format_columns(ws, df, [c for c in DATE_COLS_FLAT if c in df.columns], "dd/mm/yyyy")
-        format_columns(ws, df, [c for c in PCT_COLS_FLAT if c in df.columns], "0.00")
+        format_columns(ws, df, [c for c in PCT_COLS_FLAT if c in df.columns], "[$-416]0.00")
     return buf.getvalue()
 
 
@@ -1071,7 +1073,7 @@ with tab2:
     display_cols = [
         c for c in [
             "emit_xNome", "nNF", "dhEmi", "xProd", "cProd",
-            "qCom_item", "uCom", "vUnCom", "vProd_item",
+            "qCom_item", "uCom", "vUnCom", "vUnReal_item", "vProd_item",
             "vICMS_item", "vIPI_item", "vPIS_item", "vCOFINS_item", "vICMSST_item",
             "nLote", "dFab", "dVal", "vNF",
         ]
@@ -1091,6 +1093,7 @@ with tab2:
             "qCom_item": st.column_config.NumberColumn("Qtd", format="%.3f"),
             "uCom": st.column_config.TextColumn("Un"),
             "vUnCom": st.column_config.NumberColumn("Preço Unit", format="R$ %.4f"),
+            "vUnReal_item": st.column_config.NumberColumn("Preço Real (c/ ICMS-ST)", format="R$ %.4f"),
             "vProd_item": st.column_config.NumberColumn("Total Item", format="R$ %.2f"),
             "vICMS_item": st.column_config.NumberColumn("ICMS", format="R$ %.2f"),
             "vIPI_item": st.column_config.NumberColumn("IPI", format="R$ %.2f"),
