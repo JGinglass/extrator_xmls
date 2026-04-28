@@ -2,7 +2,6 @@ import os, glob
 import pandas as pd
 from lxml import etree
 from decimal import Decimal, InvalidOperation
-from openpyxl.styles import numbers
 from openpyxl.utils import get_column_letter
 
 NS_NFE = {"nfe": "http://www.portalfiscal.inf.br/nfe"}
@@ -110,7 +109,7 @@ def safe_rateio(valor_item: Decimal | None, q_lote: Decimal | None, q_item: Deci
 
 def format_columns_as_currency(ws, df, col_names):
     col_index = {name: i + 1 for i, name in enumerate(df.columns)}
-    moeda_fmt = getattr(numbers, "FORMAT_CURRENCY_BRL", None) or '"R$" #,##0.00'
+    moeda_fmt = '[$-416]"R$" #,##0.00'
     for name in col_names:
         if name not in col_index:
             continue
@@ -256,6 +255,14 @@ def parse_file_flat(path):
         pMVAST_item = to_decimal(xpath_first_text(imposto, './/nfe:ICMS//*[local-name()="pMVAST"]'))
         pRedBCST_item = to_decimal(xpath_first_text(imposto, './/nfe:ICMS//*[local-name()="pRedBCST"]'))
 
+        # Preço real unitário considerando ICMS-ST: (vProd_item + vICMSST_item) / qCom_item.
+        # ICMS-ST ausente é tratado como zero para que o campo continue calculável.
+        if vProd_item is not None and qCom_item is not None and qCom_item != 0:
+            _icmsst = vICMSST_item if vICMSST_item is not None else Decimal("0")
+            vUnReal_item = ((vProd_item + _icmsst) / qCom_item).quantize(Decimal("0.0001"))
+        else:
+            vUnReal_item = None
+
         
         vBCFCP_item = quantize_money(to_decimal(xpath_first_text(imposto, './/nfe:ICMS//*[local-name()="vBCFCP"]')))
         pFCP_item = to_decimal(xpath_first_text(imposto, './/nfe:ICMS//*[local-name()="pFCP"]'))
@@ -282,6 +289,7 @@ def parse_file_flat(path):
             "qCom_item": qCom_item,
 
             "vUnCom": vUnCom,
+            "vUnReal_item": vUnReal_item,
             "vProd_item": vProd_item,
 
             "vICMS_item": vICMS_item,
@@ -388,7 +396,7 @@ def main():
     df = pd.DataFrame(flat_list)
 
   
-    df = to_numeric_cols(df, MONEY_COLS_FLAT + QTY_COLS_FLAT + ["nItem", "seqRastro"] + PCT_COLS_FLAT)
+    df = to_numeric_cols(df, MONEY_COLS_FLAT + QTY_COLS_FLAT + ["nItem", "seqRastro", "vUnReal_item"] + PCT_COLS_FLAT)
 
     df = to_date_cols(df, DATE_COLS_FLAT)
 
@@ -398,12 +406,12 @@ def main():
         ws = writer.book["tabela"]
 
         format_columns_as_currency(ws, df, MONEY_COLS_FLAT)
-        format_columns(ws, df, QTY_COLS_FLAT, "#,##0.000")
+        format_columns(ws, df, ["vUnReal_item"], '[$-416]"R$" #,##0.0000')
+        format_columns(ws, df, QTY_COLS_FLAT, "[$-416]#,##0.000")
         format_columns(ws, df, ["nItem", "seqRastro"], "0")
         format_columns(ws, df, DATE_COLS_FLAT, "dd/mm/yyyy")
 
-        
-        format_columns(ws, df, PCT_COLS_FLAT, "0.00")
+        format_columns(ws, df, PCT_COLS_FLAT, "[$-416]0.00")
 
     print(f"Gerado: {out_xlsx} (aba: tabela).")
 
